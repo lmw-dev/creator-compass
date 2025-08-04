@@ -1,0 +1,34 @@
+# AI外联军师 - 依赖包列表
+
+# 命令行界面
+typer==0.9.0
+rich==13.7.0
+
+# 网络请求和视频处理
+yt-dlp==2023.12.30
+requests==2.31.0
+
+# AI和语音处理
+openai==1.6.1
+tencentcloud-sdk-python==3.0.1056
+
+# 模板引擎
+jinja2==3.1.2
+
+# 配置管理
+python-dotenv==1.0.0
+
+# 音频处理
+pydub==0.25.1
+
+# 数据处理
+pydantic==2.5.2
+
+# 测试框架
+pytest==7.4.3
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+
+# 代码质量
+ruff==0.1.8
+mypy==1.7.1
