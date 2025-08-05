@@ -10,6 +10,7 @@
 
 - **🔄 混合输入模式**: 支持`--url`(在线抓取)和`--file`(本地文件)两种输入方式
 - **📦 批量处理**: 支持批量处理文件夹中的多个MP4文件，智能去重和进度跟踪
+- **🎯 博主综合分析**: 整合博主基础信息和多个视频内容，生成综合分析报告
 - **🎵 音频转录**: 通过yt-dlp + 腾讯云ASR绕过硬字幕限制，直接从音频获取文本
 - **🤖 AI洞察**: 基于DeepSeek/OpenAI + 可配置Prompt模板分析博主特征
 - **📝 脚本生成**: 自动生成两套个性化沟通脚本模板
@@ -96,6 +97,15 @@ python main.py batch docs/data --verbose
 python main.py batch docs/data --max 10 --verbose
 ```
 
+#### 博主综合分析
+```bash
+# 分析博主文件夹（包含基础信息和多个视频）
+python main.py blogger-analysis "/path/to/11-博主-穷听 - jjjin0"
+
+# 博主综合分析，启用详细输出
+python main.py blogger-analysis "/path/to/博主文件夹" --verbose
+```
+
 #### 其他命令
 ```bash
 # 检查配置
@@ -104,14 +114,16 @@ python main.py config-check
 # 查看帮助
 python main.py --help
 python main.py batch --help
+python main.py blogger-analysis --help
 ```
 
 #### 输出文件
 ```text
 outputs/
-├── [博主名]-[视频标题]-[时间戳].md      # 完整分析报告
+├── [博主名]-[视频标题]-[时间戳].md           # 单视频分析报告
+├── 博主综合分析-[博主名]-[时间戳].md          # 博主综合分析报告
 └── transcripts/
-    └── [博主名]-[视频标题]-[时间戳].txt  # 纯转录文本
+    └── [博主名]-[视频标题]-[时间戳].txt      # 纯转录文本
 ```
 
 ## 📁 项目结构
@@ -126,6 +138,7 @@ creator-compass/
 │       ├── file_handler.py    # 本地文件处理模块
 │       ├── transcriber.py     # ASR转录模块 (腾讯云ASR封装)
 │       ├── analyzer.py        # AI分析模块 (LLM API封装)
+│       ├── blogger_analyzer.py # 博主综合分析模块
 │       ├── generator.py       # 脚本生成模块 (Jinja2封装)
 │       └── utils/             # 工具函数目录
 │           ├── __init__.py    # 工具包初始化
@@ -138,7 +151,8 @@ creator-compass/
 │   └── extract_pain_points.txt
 ├── templates/                 # 📝 沟通脚本模板目录
 │   ├── new_blogger_template.md     # 新锐博主破冰脚本
-│   └── known_blogger_template.md   # 旧识博主激活脚本
+│   ├── known_blogger_template.md   # 旧识博主激活脚本
+│   └── blogger_comprehensive_template.md # 博主综合分析报告模板
 ├── tests/                     # 🧪 测试文件目录
 │   ├── test_*.py             # 单元测试和集成测试
 │   └── __init__.py
@@ -196,6 +210,14 @@ pytest --cov=. tests/
 ```
 
 ## 📝 更新日志
+
+### 2025-08-05 (v1.2.0)
+
+- 🎯 **博主综合分析**: 全新分析模式，整合博主基础信息和多个视频内容
+- 📋 **智能档案解析**: 支持"人物 - 博主名.md"基础信息文件自动解析
+- 🤝 **合作评估报告**: 生成包含优势风险评估和个性化开场白的综合报告
+- 🔤 **智能命名优化**: 从文件夹路径和文件名智能提取博主名称
+- 📊 **多维度分析**: 视频作品清单、内容特征、受众画像全方位分析
 
 ### 2025-08-05 (v1.1.0)
 
