@@ -44,7 +44,7 @@ def extract_audio_from_video(
             '-i', str(video_path),
             '-vn',  # 不处理视频
             '-acodec', 'pcm_s16le',
-            '-ar', '8000',  # 降低采样率以减小文件
+            '-ar', str(config.AUDIO_SAMPLE_RATE),  # 使用配置的采样率
             '-ac', str(config.AUDIO_CHANNELS),
             '-y',  # 覆盖输出文件
             str(output_path)
@@ -57,7 +57,7 @@ def extract_audio_from_video(
             '-vn',  # 不处理视频
             '-acodec', 'mp3',
             '-b:a', '64k',  # 低比特率
-            '-ar', '8000',  # 低采样率
+            '-ar', str(config.AUDIO_SAMPLE_RATE),  # 使用配置的采样率
             '-ac', str(config.AUDIO_CHANNELS),
             '-y',  # 覆盖输出文件
             str(output_path)

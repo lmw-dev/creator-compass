@@ -73,7 +73,7 @@ nano .env
 
 ```bash
 # 方式1: URL链接分析 (B站、YouTube等) - 优先提取字幕
-python main.py analyze --url "https://www.bilibili.com/video/BV1xxxxx"
+python main.py analyze --url "https://www.bilibili.com/video/BV14e8JzdEgH/?spm_id_from=333.1007.tianma.2-2-5.click&vd_source=976833e5802fbddc07ce1803775b1e06"
 
 # 方式2: 本地文件分析 (推荐用于抖音等复杂平台)
 python main.py analyze --file "/path/to/downloaded/video.mp4"

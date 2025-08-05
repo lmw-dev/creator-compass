@@ -59,7 +59,19 @@ class TencentASRTranscriber:
             
             # 检查文件大小（5MB限制）
             if len(audio_data) > 5 * 1024 * 1024:
-                raise TranscriptionError(f"音频文件过大: {len(audio_data)} bytes，超过5MB限制")
+                logger.warning(f"音频文件过大: {len(audio_data)} bytes，开始压缩...")
+                # 压缩音频文件
+                compressed_path = self._compress_audio_file(audio_path)
+                with open(compressed_path, 'rb') as f:
+                    audio_data = f.read()
+                    
+                # 再次检查大小
+                if len(audio_data) > 5 * 1024 * 1024:
+                    raise TranscriptionError(f"音频文件压缩后仍过大: {len(audio_data)} bytes，超过5MB限制")
+                
+                logger.info(f"音频压缩完成，新大小: {len(audio_data)} bytes")
+                # 删除压缩的临时文件
+                compressed_path.unlink()
             
             audio_base64 = base64.b64encode(audio_data).decode('utf-8')
             
@@ -69,6 +81,8 @@ class TencentASRTranscriber:
             req.SubServiceType = 2
             req.EngSerViceType = "16k_zh"
             req.SourceType = 1
+            req.VoiceFormat = "wav"  # 音频格式
+            req.UsrAudioKey = f"audio_{int(__import__('time').time())}"  # 音频唯一标识
             req.Data = audio_base64
             req.DataLen = len(audio_data)
             
@@ -78,6 +92,7 @@ class TencentASRTranscriber:
             # 解析结果
             if hasattr(resp, 'Result') and resp.Result:
                 logger.info(f"短音频转录完成，文本长度: {len(resp.Result)}字符")
+                logger.debug(f"转录结果内容: '{resp.Result}'")
                 return TranscriptResult(resp.Result, 1.0)
             else:
                 raise TranscriptionError("转录结果为空")
@@ -101,11 +116,24 @@ class TencentASRTranscriber:
         """
         logger.info(f"开始转录音频: {audio_path}")
         
+        original_audio_path = audio_path
+        compressed_path = None
+        
         try:
             # 检查文件大小
             file_size = audio_path.stat().st_size
             if file_size > 5 * 1024 * 1024:
-                raise TranscriptionError(f"音频文件过大: {file_size} bytes，超过5MB限制")
+                logger.warning(f"音频文件过大: {file_size} bytes，开始压缩...")
+                # 压缩音频文件
+                compressed_path = self._compress_audio_file(audio_path)
+                audio_path = compressed_path  # 使用压缩后的文件
+                file_size = audio_path.stat().st_size
+                
+                # 再次检查大小
+                if file_size > 5 * 1024 * 1024:
+                    raise TranscriptionError(f"音频文件压缩后仍过大: {file_size} bytes，超过5MB限制")
+                
+                logger.info(f"音频压缩完成，新大小: {file_size} bytes")
             
             # 读取音频文件并编码
             with open(audio_path, 'rb') as f:
@@ -120,6 +148,7 @@ class TencentASRTranscriber:
             req.ResTextFormat = 0
             req.SourceType = 1
             req.Data = audio_base64
+            req.DataLen = len(audio_data)
             
             # 发送创建任务请求
             resp = self.client.CreateRecTask(req)
@@ -141,31 +170,50 @@ class TencentASRTranscriber:
                     
                     if desc_resp.Data.StatusStr == "success":
                         # 任务完成，获取结果
-                        result_text = desc_resp.Data.ResultDetail
+                        # 根据API测试发现，结果在Result字段中，不在ResultDetail中
+                        result_text = getattr(desc_resp.Data, 'Result', '')
+                        result_detail = getattr(desc_resp.Data, 'ResultDetail', None)
                         
-                        # 解析详细结果
-                        if isinstance(result_text, str):
-                            try:
-                                result_json = json.loads(result_text)
-                                # 提取文本内容
-                                text_segments = []
-                                if isinstance(result_json, list):
-                                    for segment in result_json:
-                                        if 'FinalSentence' in segment:
-                                            text_segments.append(segment['FinalSentence'])
-                                        elif 'ResultDetail' in segment:
-                                            for detail in segment['ResultDetail']:
-                                                if 'FinalSentence' in detail:
-                                                    text_segments.append(detail['FinalSentence'])
-                                
-                                final_text = ''.join(text_segments) if text_segments else result_text
-                            except json.JSONDecodeError:
-                                final_text = result_text
-                        else:
-                            final_text = str(result_text)
+                        # 添加详细调试信息
+                        logger.debug(f"API返回的Result: {result_text}")
+                        logger.debug(f"API返回的ResultDetail: {result_detail}")
                         
-                        logger.info(f"转录完成，文本长度: {len(final_text)}字符")
-                        return TranscriptResult(final_text, 1.0)
+                        full_text = ""
+                        
+                        # 优先使用Result字段（这是主要的识别结果）
+                        if result_text:
+                            full_text = result_text.strip()
+                            logger.info(f"从Result字段获取转录结果，长度: {len(full_text)}字符")
+                        
+                        # 如果Result为空，尝试解析ResultDetail（作为备选）
+                        elif result_detail:
+                            logger.debug("Result字段为空，尝试解析ResultDetail")
+                            segment_count = 0
+                            for i, segment in enumerate(result_detail):
+                                logger.debug(f"分段{i}类型: {type(segment)}")
+                                logger.debug(f"分段{i}内容: {segment}")
+                                if hasattr(segment, "FinalSentence"):
+                                    logger.debug(f"分段{i}的FinalSentence: {segment.FinalSentence}")
+                                    full_text += segment.FinalSentence
+                                    segment_count += 1
+                                else:
+                                    logger.debug(f"分段{i}没有FinalSentence属性")
+                            logger.debug(f"从ResultDetail解析得到分段数量: {segment_count}")
+                        
+                        # 清理转录文本中的时间戳标记（如果存在）
+                        if full_text:
+                            # 移除时间戳标记，如 [0:0.000,1:0.220]
+                            import re
+                            full_text = re.sub(r'\[\d+:\d+\.\d+,\d+:\d+\.\d+\]\s*', '', full_text)
+                            full_text = full_text.strip()
+                        
+                        if not full_text:
+                            logger.warning("所有解析方式都未获取到转录文本")
+                            return TranscriptResult("", 0.0)
+                        
+                        logger.info(f"转录完成，最终文本长度: {len(full_text)}字符")
+                        logger.debug(f"转录结果内容: '{full_text[:200]}...'")
+                        return TranscriptResult(full_text, 1.0)
                     
                     elif desc_resp.Data.StatusStr == "failed":
                         error_msg = getattr(desc_resp.Data, 'ErrorMsg', '转录任务失败')
@@ -188,5 +236,57 @@ class TencentASRTranscriber:
             if isinstance(e, TranscriptionError):
                 raise
             error_msg = f"长音频转录失败: {e}"
+            logger.error(error_msg)
+            raise TranscriptionError(error_msg)
+        finally:
+            # 清理压缩文件
+            if compressed_path and compressed_path.exists():
+                try:
+                    compressed_path.unlink()
+                    logger.debug(f"已删除压缩文件: {compressed_path}")
+                except Exception as e:
+                    logger.warning(f"删除压缩文件失败: {e}")
+    
+    def _compress_audio_file(self, audio_path: Path) -> Path:
+        """
+        压缩音频文件以满足API大小限制
+        
+        Args:
+            audio_path: 原始音频文件路径
+            
+        Returns:
+            压缩后的音频文件路径
+        """
+        import subprocess
+        
+        compressed_path = audio_path.parent / f"{audio_path.stem}_compressed.mp3"
+        
+        # 使用极低的采样率和比特率进行压缩
+        # 对于13分钟视频，需要更激进的压缩
+        cmd = [
+            'ffmpeg',
+            '-i', str(audio_path),
+            '-acodec', 'mp3',
+            '-b:a', '32k',  # 非常低的比特率
+            '-ar', '16000',  # 保持标准语音识别采样率
+            '-ac', '1',     # 单声道
+            '-af', 'volume=3.0',  # 增加音量以补偿质量损失
+            '-y',  # 覆盖输出文件
+            str(compressed_path)
+        ]
+        
+        try:
+            subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=120
+            )
+            logger.info(f"音频压缩完成: {audio_path} -> {compressed_path}")
+            return compressed_path
+            
+        except subprocess.CalledProcessError as e:
+            error_msg = f"音频压缩失败: {e.stderr}"
             logger.error(error_msg)
             raise TranscriptionError(error_msg)

@@ -33,7 +33,7 @@ class VideoFetcher:
         # yt-dlp配置
         self.ydl_opts = {
             'outtmpl': str(config.TEMP_DIR / '%(title)s.%(ext)s'),
-            'format': 'worst',  # 使用最低质量，减小文件大小
+            'format': '100046+30216/30011+30216/worst',  # 视频+音频组合格式
             'noplaylist': True,
             'quiet': True,
             'no_warnings': True,
