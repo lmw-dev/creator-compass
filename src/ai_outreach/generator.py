@@ -246,3 +246,56 @@ class ScriptGenerator:
             # 不抛出异常，因为这是辅助功能，不应该影响主流程
             logger.warning("转录文本保存失败，继续处理主流程")
             return None
+    
+    def generate_blogger_comprehensive_report(self, analysis_data: Dict[str, Any]) -> Path:
+        """
+        生成博主综合分析报告
+        
+        Args:
+            analysis_data: 博主综合分析数据
+            
+        Returns:
+            保存的文件路径
+        """
+        logger.info(f"生成博主综合分析报告: {analysis_data['blogger_info'].name}")
+        
+        try:
+            # 加载模板
+            template = self.env.get_template('blogger_comprehensive_template.md')
+            
+            # 准备模板数据
+            template_data = {
+                'blogger_info': analysis_data['blogger_info'],
+                'video_summaries': analysis_data['video_summaries'],
+                'comprehensive_analysis': analysis_data['comprehensive_analysis'],
+                'total_videos': analysis_data['total_videos'],
+                'total_duration': analysis_data['total_duration'],
+                'all_transcripts_length': analysis_data['all_transcripts_length'],
+                'current_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            
+            # 渲染模板
+            report_content = template.render(**template_data)
+            
+            # 生成文件名
+            blogger_name = analysis_data['blogger_info'].name.replace('/', '_').replace('\\', '_')
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f"博主综合分析-{blogger_name}-{timestamp}.md"
+            
+            output_path = config.OUTPUT_DIR / filename
+            
+            # 保存文件
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(report_content)
+            
+            logger.info(f"博主综合分析报告已保存: {output_path}")
+            return output_path
+            
+        except TemplateError as e:
+            error_msg = f"模板渲染失败: {e}"
+            logger.error(error_msg)
+            raise CustomTemplateError(error_msg)
+        except Exception as e:
+            error_msg = f"生成博主综合分析报告失败: {e}"
+            logger.error(error_msg)
+            raise CustomTemplateError(error_msg)

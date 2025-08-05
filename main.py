@@ -20,6 +20,7 @@ from src.ai_outreach.file_handler import FileHandler
 from src.ai_outreach.transcriber import TencentASRTranscriber
 from src.ai_outreach.analyzer import ContentAnalyzer
 from src.ai_outreach.generator import ScriptGenerator
+from src.ai_outreach.blogger_analyzer import BloggerAnalyzer
 
 # 创建Typer应用
 app = typer.Typer(
@@ -481,6 +482,91 @@ def process_single_file(file_path: str, verbose: bool = False) -> Optional[dict]
         # 清理临时文件
         if temp_files:
             cleanup_temp_files(*temp_files)
+
+@app.command()
+def blogger_analysis(
+    folder: str = typer.Argument(..., help="博主文件夹路径（包含'人物 - 博主名.md'和视频文件）"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="启用详细输出")
+):
+    """
+    博主综合分析：整合基础信息和多个视频内容
+    
+    示例：
+    python main.py blogger-analysis "/path/to/11-博主-穷听 - jjjin0"
+    """
+    
+    # 设置日志级别
+    if verbose:
+        logger.setLevel("DEBUG")
+    
+    print_banner()
+    
+    # 验证配置
+    try:
+        validate_config()
+    except typer.Exit:
+        return
+    
+    # 验证文件夹路径
+    folder_path = Path(folder)
+    if not folder_path.exists():
+        console.print(f"❌ 文件夹不存在: {folder}", style="bold red")
+        raise typer.Exit(1)
+    
+    if not folder_path.is_dir():
+        console.print(f"❌ 路径不是文件夹: {folder}", style="bold red")
+        raise typer.Exit(1)
+    
+    try:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            
+            # 步骤1: 初始化分析器
+            task1 = progress.add_task("🔍 初始化博主分析器...", total=None)
+            blogger_analyzer = BloggerAnalyzer()
+            progress.update(task1, description="✅ 分析器初始化完成")
+            
+            # 步骤2: 分析博主文件夹
+            task2 = progress.add_task("📁 解析博主文件夹...", total=None)
+            analysis_result = blogger_analyzer.analyze_blogger_folder(folder_path)
+            progress.update(task2, description="✅ 文件夹分析完成")
+            
+            # 步骤3: 生成综合报告
+            task3 = progress.add_task("📊 生成综合分析报告...", total=None)
+            generator = ScriptGenerator()
+            report_path = generator.generate_blogger_comprehensive_report(analysis_result)
+            progress.update(task3, description="✅ 报告生成完成")
+        
+        # 显示结果
+        blogger_info = analysis_result['blogger_info']
+        console.print("\n🎉 博主综合分析完成!", style="bold green")
+        console.print(f"📁 报告已保存至: {report_path}", style="blue")
+        console.print(f"👤 博主: {blogger_info.name}", style="dim")
+        console.print(f"📺 平台: {blogger_info.platform}", style="dim")
+        console.print(f"🎬 分析视频: {analysis_result['total_videos']}个", style="dim")
+        console.print(f"⏱️  总时长: {analysis_result['total_duration']:.1f}秒", style="dim")
+        console.print(f"📝 文本总量: {analysis_result['all_transcripts_length']}字符", style="dim")
+        
+        # 显示关键洞察
+        comprehensive = analysis_result['comprehensive_analysis']
+        console.print("\n🔍 综合洞察:", style="bold")
+        console.print(f"• 内容风格: {comprehensive.content_style[:50]}...")
+        console.print(f"• 专业领域: {comprehensive.blogger_characteristics['expertise']}")
+        console.print(f"• 主要话题: {', '.join(comprehensive.main_topics[:3])}")
+        
+    except KeyboardInterrupt:
+        console.print("\n❌ 用户中断操作", style="yellow")
+        
+    except (FileProcessingError, AnalysisError) as e:
+        console.print(f"❌ 分析错误: {e}", style="bold red")
+        logger.error(f"博主分析错误: {e}")
+        
+    except Exception as e:
+        console.print(f"❌ 未知错误: {e}", style="bold red")
+        logger.error(f"博主分析未知错误: {e}")
 
 @app.command()
 def config_check():
