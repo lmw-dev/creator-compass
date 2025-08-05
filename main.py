@@ -154,10 +154,26 @@ def analyze(
                     transcript_result = transcriber.transcribe_file(video_info.audio_path)
                 
                 progress.update(task2, description="✅ 音频转录完成")
+                
             else:
                 # 跳过转录步骤
                 task2 = progress.add_task("📝 使用字幕内容", total=None)
                 progress.update(task2, description="✅ 字幕内容准备完成")
+            
+            # 保存转录文本（辅助功能，不影响主流程）
+            try:
+                generator = ScriptGenerator()
+                video_info_dict = {
+                    'title': video_info.title,
+                    'author': video_info.author,
+                    'duration': video_info.duration,
+                    'input_type': input_mode
+                }
+                transcript_path = generator.save_transcript_text(transcript_result.text, video_info_dict)
+                if transcript_path:
+                    logger.debug(f"转录文本已保存到: {transcript_path}")
+            except Exception as e:
+                logger.warning(f"保存转录文本时出错，继续主流程: {e}")
             
             # 步骤3: 内容分析
             task3 = progress.add_task("🧠 AI内容分析...", total=None)

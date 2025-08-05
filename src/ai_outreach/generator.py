@@ -193,3 +193,56 @@ class ScriptGenerator:
             error_msg = f"保存报告失败: {e}"
             logger.error(error_msg)
             raise CustomTemplateError(error_msg)
+    
+    def save_transcript_text(self, transcript_text: str, video_info: Dict[str, Any]) -> Path:
+        """
+        保存转录文本到专用目录
+        
+        Args:
+            transcript_text: 转录文本内容
+            video_info: 视频信息
+            
+        Returns:
+            保存的文件路径
+        """
+        try:
+            # 生成文件名
+            author = video_info.get('author', 'Unknown').replace('/', '_').replace('\\', '_')
+            title = video_info.get('title', 'Unknown').replace('/', '_').replace('\\', '_')
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            
+            filename = f"{author}-{title}-{timestamp}.txt"
+            output_path = config.TRANSCRIPTS_DIR / filename
+            
+            # 构建转录文件内容
+            transcript_content = f"""# 音频转录文本
+
+## 基本信息
+- **博主**: {video_info.get('author', 'Unknown')}
+- **标题**: {video_info.get('title', 'Unknown')}
+- **时长**: {video_info.get('duration', 0):.1f}秒
+- **来源**: {video_info.get('input_type', 'unknown')}
+- **转录时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+- **字符数**: {len(transcript_text)}
+
+## 转录内容
+
+{transcript_text}
+
+---
+*由AI外联军师系统自动转录*
+"""
+            
+            # 保存文件
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(transcript_content)
+            
+            logger.info(f"转录文本已保存: {output_path}")
+            return output_path
+            
+        except Exception as e:
+            error_msg = f"保存转录文本失败: {e}"
+            logger.error(error_msg)
+            # 不抛出异常，因为这是辅助功能，不应该影响主流程
+            logger.warning("转录文本保存失败，继续处理主流程")
+            return None

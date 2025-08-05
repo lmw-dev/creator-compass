@@ -42,6 +42,7 @@ class Config:
         
         # 目录配置
         self.OUTPUT_DIR = self.ROOT_DIR / os.getenv("OUTPUT_DIR", "outputs")
+        self.TRANSCRIPTS_DIR = self.OUTPUT_DIR / "transcripts"  # 转录文本专用目录
         self.TEMP_DIR = self.ROOT_DIR / os.getenv("TEMP_DIR", "temp")
         self.PROMPTS_DIR = self.ROOT_DIR / "prompts"
         self.TEMPLATES_DIR = self.ROOT_DIR / "templates"
@@ -73,6 +74,7 @@ class Config:
     def ensure_directories(self):
         """确保必要的目录存在"""
         self.OUTPUT_DIR.mkdir(exist_ok=True)
+        self.TRANSCRIPTS_DIR.mkdir(exist_ok=True)
         self.TEMP_DIR.mkdir(exist_ok=True)
 
 # 全局配置实例
