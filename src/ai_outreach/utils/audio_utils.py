@@ -3,6 +3,7 @@ FFmpeg音频处理工具函数
 """
 
 import subprocess
+import re
 from pathlib import Path
 from typing import Tuple, Optional
 from .logger import logger
@@ -132,6 +133,79 @@ def get_audio_info(audio_path: Path) -> dict:
     except (subprocess.CalledProcessError, json.JSONDecodeError, KeyError) as e:
         logger.error(f"获取音频信息失败: {e}")
         raise AudioProcessingError(f"获取音频信息失败: {e}")
+
+def extract_blogger_info_from_path(file_path: Path) -> Tuple[str, str]:
+    """
+    从文件路径中智能提取博主名称和标题
+    
+    支持的命名模式：
+    1. "数字-博主-博主名称 - 附加信息" (如: 11-博主-穷听 - jjjin0)
+    2. "博主名称-视频标题-时间戳" 
+    3. "博主名称_视频标题"
+    4. 直接文件名
+    
+    Args:
+        file_path: 文件路径
+        
+    Returns:
+        Tuple[博主名称, 标题]
+    """
+    # 获取文件名（不含扩展名）
+    filename = file_path.stem
+    
+    # 获取父目录名，可能包含博主信息
+    parent_name = file_path.parent.name
+    
+    logger.debug(f"提取博主信息 - 文件名: {filename}, 父目录: {parent_name}")
+    
+    # 模式1: 从父目录提取 "数字-博主-博主名称 - 附加信息"
+    parent_match = re.match(r'^\d+-博主-([^-\s]+)(?:\s*-\s*.*)?$', parent_name)
+    if parent_match:
+        blogger_name = parent_match.group(1).strip()
+        title = filename
+        logger.info(f"从父目录提取博主信息: {blogger_name}")
+        return blogger_name, title
+    
+    # 尝试用-分割
+    parts = filename.split('-')
+    if len(parts) >= 2:
+        # 第一部分可能是博主名称
+        potential_blogger = parts[0].strip()
+        if potential_blogger and re.search(r'[\u4e00-\u9fff]', potential_blogger):
+            title = '-'.join(parts[1:]).strip()
+            logger.info(f"从文件名(-)提取博主信息: {potential_blogger}")
+            return potential_blogger, title
+    
+    # 尝试用_分割
+    parts = filename.split('_')
+    if len(parts) >= 2:
+        potential_blogger = parts[0].strip()
+        if potential_blogger and re.search(r'[\u4e00-\u9fff]', potential_blogger):
+            title = '_'.join(parts[1:]).strip()
+            logger.info(f"从文件名(_)提取博主信息: {potential_blogger}")
+            return potential_blogger, title
+    
+    # 模式3: 从父目录提取其他可能的博主名称模式
+    # 如果父目录包含中文且不是常见的系统目录名
+    if parent_name not in ['data', 'videos', 'downloads', 'temp', 'output', 'test_data', '其他测试'] and re.search(r'[\u4e00-\u9fff]', parent_name):
+        # 尝试从父目录中提取博主名称
+        # 去除数字前缀、特殊字符等
+        clean_parent = re.sub(r'^\d+[-_\s]*', '', parent_name)  # 去除数字前缀
+        clean_parent = re.sub(r'[-_\s]*\d+$', '', clean_parent)  # 去除数字后缀
+        clean_parent = clean_parent.strip('- _')
+        
+        if clean_parent and len(clean_parent) > 1:
+            logger.info(f"从父目录提取博主信息: {clean_parent}")
+            return clean_parent, filename
+    
+    # 模式4: 检查是否整个文件名就是博主名称
+    if re.search(r'[\u4e00-\u9fff]', filename) and len(filename) <= 20:
+        logger.info(f"使用文件名作为博主名称: {filename}")
+        return filename, filename
+    
+    # 默认情况：无法识别博主名称
+    logger.debug(f"无法从路径提取博主信息，使用默认值")
+    return "Unknown", filename
 
 def cleanup_temp_files(*file_paths: Path):
     """清理临时文件"""

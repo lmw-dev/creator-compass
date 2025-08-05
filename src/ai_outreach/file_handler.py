@@ -8,14 +8,14 @@ from typing import Optional
 from .utils.logger import logger
 from .utils.exceptions import AudioProcessingError
 from .utils.config import config
-from .utils.audio_utils import extract_audio_from_video, get_audio_info
+from .utils.audio_utils import extract_audio_from_video, get_audio_info, extract_blogger_info_from_path
 
 class LocalVideoInfo:
     """本地视频信息类"""
     def __init__(self, file_path: Path):
         self.url = None
-        self.title = file_path.stem
-        self.author = "Unknown"
+        # 智能提取博主名称和标题
+        self.author, self.title = extract_blogger_info_from_path(file_path)
         self.duration = 0.0
         self.video_path = file_path
         self.audio_path: Optional[Path] = None
