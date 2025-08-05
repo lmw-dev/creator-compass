@@ -9,6 +9,7 @@
 ### 🚀 核心特色
 
 - **🔄 混合输入模式**: 支持`--url`(在线抓取)和`--file`(本地文件)两种输入方式
+- **📦 批量处理**: 支持批量处理文件夹中的多个MP4文件，智能去重和进度跟踪
 - **🎵 音频转录**: 通过yt-dlp + 腾讯云ASR绕过硬字幕限制，直接从音频获取文本
 - **🤖 AI洞察**: 基于DeepSeek/OpenAI + 可配置Prompt模板分析博主特征
 - **📝 脚本生成**: 自动生成两套个性化沟通脚本模板
@@ -71,6 +72,7 @@ nano .env
 
 ### 使用方法
 
+#### 单文件分析
 ```bash
 # 方式1: URL链接分析 (B站、YouTube等) - 优先提取字幕
 python main.py analyze --url "https://www.bilibili.com/video/BV14e8JzdEgH/?spm_id_from=333.1007.tianma.2-2-5.click&vd_source=976833e5802fbddc07ce1803775b1e06"
@@ -78,14 +80,38 @@ python main.py analyze --url "https://www.bilibili.com/video/BV14e8JzdEgH/?spm_i
 # 方式2: 本地文件分析 (推荐用于抖音等复杂平台)
 python main.py analyze --file "/path/to/downloaded/video.mp4"
 
+# 详细输出（调试模式）
+python main.py analyze --file "video.mp4" --verbose
+```
+
+#### 批量处理
+```bash
+# 批量处理文件夹中的所有MP4文件
+python main.py batch /path/to/videos
+
+# 批量处理，启用详细输出
+python main.py batch docs/data --verbose
+
+# 限制处理数量（适用于大批量文件）
+python main.py batch docs/data --max 10 --verbose
+```
+
+#### 其他命令
+```bash
 # 检查配置
 python main.py config-check
 
-# 详细输出（调试模式）
-python main.py analyze --file "video.mp4" --verbose
+# 查看帮助
+python main.py --help
+python main.py batch --help
+```
 
-# 输出示例
-# 生成文件: outputs/[博主名]-[视频标题]-[时间戳].md
+#### 输出文件
+```text
+outputs/
+├── [博主名]-[视频标题]-[时间戳].md      # 完整分析报告
+└── transcripts/
+    └── [博主名]-[视频标题]-[时间戳].txt  # 纯转录文本
 ```
 
 ## 📁 项目结构
@@ -117,6 +143,7 @@ creator-compass/
 │   ├── test_*.py             # 单元测试和集成测试
 │   └── __init__.py
 ├── outputs/                   # 📊 输出报告目录
+│   └── transcripts/           # 📝 转录文本专用目录
 ├── temp/                      # 🗂️ 临时文件目录
 ├── docs/                      # 📚 项目文档
 │   ├── 项目 - AI外联军师.md
@@ -169,6 +196,14 @@ pytest --cov=. tests/
 ```
 
 ## 📝 更新日志
+
+### 2025-08-05 (v1.1.0)
+
+- 📦 **批量处理**: 新增批量处理功能，支持一次性处理文件夹中的多个MP4文件
+- 🧠 **智能去重**: 自动检测已处理文件，避免重复处理节省时间和API调用
+- 📊 **进度追踪**: 实时显示处理进度和详细统计报告
+- 📝 **转录保存**: 新增转录文本独立保存功能，输出到专用transcripts目录
+- ⚡ **性能优化**: 批量处理支持错误恢复，单文件失败不影响整体任务
 
 ### 2025-08-04 (v1.0.0)
 
