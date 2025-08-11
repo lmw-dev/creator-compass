@@ -239,7 +239,14 @@ class ContentAnalyzer:
             except Exception as _:
                 # 保底不影响主流程
                 pass
-            
+
+            # 软性指标兜底生成：若模型未提供，尝试基于已有字段推断简短summary
+            try:
+                if not analysis_data.get('soft_indicator_summary'):
+                    analysis_data['soft_indicator_summary'] = self._infer_soft_indicator_summary(analysis_data)
+            except Exception as _:
+                pass
+
             return AnalysisResult(analysis_data)
             
         except Exception as e:
@@ -598,4 +605,32 @@ class ContentAnalyzer:
             script = f"{script}（例如：在{topic}内容中，常常被{pain}拖慢节奏）"
 
         return script
+
+    def _infer_soft_indicator_summary(self, data: Dict[str, Any]) -> str:
+        """
+        从 golden_sentences / main_topics / pain_points 的关键词启发式推断一个软性指标总结（≤40字）。
+        优先级：工作流 > 进化 > 求教。若皆无，返回"未识别"。
+        """
+        join_lower = lambda arr: " ".join(arr).lower() if isinstance(arr, list) else str(arr).lower()
+        quotes = join_lower(data.get('blogger_golden_quotes') or data.get('golden_sentences') or [])
+        topics = join_lower(data.get('main_topics') or [])
+        pains = join_lower(data.get('pain_points') or [])
+        concat = f"{quotes} {topics} {pains}"
+
+        # 工作流触发词
+        workflow_keys = ["流程", "sop", "我通常", "我会先", "整理资料", "构思脚本", "多设备", "三维评估", "复盘"]
+        if any(k.lower() in concat for k in workflow_keys):
+            return "展现‘工作流’：有方法论与步骤感"
+
+        # 进化迹象触发词
+        evolve_keys = ["结构", "叙事", "节奏", "脚本", "分镜", "转场", "悬念", "从只看数据到"]
+        if any(k.lower() in concat for k in evolve_keys):
+            return "有‘进化’迹象：从数据走向结构与节奏"
+
+        # 求教欲望触发词
+        seek_keys = ["欢迎留言", "评论区", "一起研究", "请教", "有没有建议", "你们怎么看"]
+        if any(k.lower() in concat for k in seek_keys):
+            return "‘求教’欲望强：互动积极，开放学习者"
+
+        return "未识别"
 

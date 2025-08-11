@@ -9,6 +9,7 @@
 | **内容领域** | {{ blogger_info.niche }} |
 | **一句话速写** | {{ comprehensive_analysis.blogger_characteristics.style }}的{{ comprehensive_analysis.blogger_characteristics.expertise }}，个性{{ comprehensive_analysis.blogger_characteristics.personality }} |
 | **合作状态** | {{ blogger_info.status }} |
+| **初步洞察（软性指标）** | {{ comprehensive_analysis.soft_indicator_summary or "未识别" }} |
 
 ---
 
