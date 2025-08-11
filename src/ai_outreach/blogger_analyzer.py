@@ -86,6 +86,12 @@ class BloggerAnalyzer:
         # 解析表格数据
         slogan = self._extract_table_field(content, 'slogan', '')
         
+        # 补充从表格提取的信息
+        if not niche:
+            niche = self._extract_table_field(content, '粉丝画像', '')
+        if not follower_count:
+            follower_count = self._extract_table_field(content, '粉丝数', '')
+        
         # 解析一句话核心评估
         one_liner = self._extract_one_liner(content)
         
@@ -107,24 +113,48 @@ class BloggerAnalyzer:
     
     def _extract_yaml_field(self, content: str, field: str, default: str = "") -> str:
         """从YAML前置数据中提取字段"""
-        pattern = rf'{field}:\s*"?([^"\n]*)"?'
-        match = re.search(pattern, content)
-        return match.group(1).strip() if match else default
+        # 改进正则表达式：确保只匹配当前行的内容，处理空值情况
+        pattern = rf'{field}:\s*"?([^"\n#]*)"?(?:\s*#.*)?$'
+        match = re.search(pattern, content, re.MULTILINE)
+        if match:
+            result = match.group(1).strip()
+            # 如果结果为空，返回默认值
+            return result if result else default
+        return default
     
     def _extract_table_field(self, content: str, field: str, default: str = "") -> str:
         """从表格中提取字段"""
-        pattern = rf'\|\s*{field}\s*\|\s*([^|]+)\|'
+        # 改进正则表达式：使用更宽松的匹配，处理markdown表格格式
+        pattern = rf'\|\s*\*\*{field}\*\*\s*\|\s*([^|]+)\s*\|'
+        match = re.search(pattern, content, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+        
+        # 备用模式：不带加粗的字段
+        pattern = rf'\|\s*{field}\s*\|\s*([^|]+)\s*\|'
         match = re.search(pattern, content, re.IGNORECASE)
         return match.group(1).strip() if match else default
     
     def _extract_one_liner(self, content: str) -> str:
         """提取一句话核心评估"""
-        pattern = r'>\s*([^>\n]+(?:\n[^>\n]+)*)'
+        # 查找markdown提示框中的内容，特别是一句话核心评估
+        pattern = r'>\s*\[!tip\]\s*一句话核心评估[^>]*>\s*([^<\n]+(?:\n>\s*[^<\n]+)*)'
+        match = re.search(pattern, content, re.IGNORECASE)
+        if match:
+            text = match.group(1).strip()
+            if text and text != '在这里用一句话总结为什么这位博主是我们的潜在合作伙伴，他/她的独特价值点是什么？':
+                return text
+        
+        # 备用：查找所有以>开头的行
+        pattern = r'>\s*([^>\n]+(?:\n>\s*[^>\n]+)*)'
         matches = re.findall(pattern, content)
-        # 找到第一个非空的一句话评估
+        # 找到第一个非空的、不是模板文本的评估
         for match in matches:
-            text = match.strip()
-            if text and '一句话总结' not in text and len(text) > 10:
+            text = re.sub(r'>\s*', '', match).strip()  # 移除>符号
+            if (text and 
+                '一句话总结' not in text and 
+                '在这里用一句话总结' not in text and
+                len(text) > 10):
                 return text
         return ""
     
@@ -168,11 +198,11 @@ class BloggerAnalyzer:
                 # 处理视频文件
                 video_info = self.file_handler.process_file(str(video_file))
                 
-                # 转录音频
+                # 转录音频（传递源文件以启用缓存）
                 if video_info.duration <= 60:
-                    transcript_result = self.transcriber.transcribe_short_audio(video_info.audio_path)
+                    transcript_result = self.transcriber.transcribe_short_audio(video_info.audio_path, video_file)
                 else:
-                    transcript_result = self.transcriber.transcribe_file(video_info.audio_path)
+                    transcript_result = self.transcriber.transcribe_file(video_info.audio_path, video_file)
                 
                 # 分析内容
                 analysis_result = self.content_analyzer.analyze_content(
@@ -241,12 +271,11 @@ class BloggerAnalyzer:
 {chr(10).join(all_transcripts)}
         """.strip()
         
-        # 使用AI进行综合分析
+        # 使用AI进行综合分析（使用博主综合分析专用方法）
         try:
-            comprehensive_analysis = self.content_analyzer.analyze_content(
+            comprehensive_analysis = self.content_analyzer.analyze_blogger_comprehensive(
                 combined_text,
-                title=f"{blogger_info.name}综合分析",
-                author=blogger_info.name
+                blogger_name=blogger_info.name
             )
             
             return {

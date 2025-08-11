@@ -1,5 +1,30 @@
 # 🎯 博主综合分析报告
 
+## 🎯 最优破冰脚本 (基于深度洞察一体化生成)
+
+{{ comprehensive_analysis.optimal_outreach_script or "脚本生成中..." }}
+
+---
+
+## 🧠 方法论解读 (爆款解构器视角)
+
+### 信任之钩
+{{ comprehensive_analysis.methodology_mapping.trust_hook or "未分析" }}
+
+### 共情之锚  
+{{ comprehensive_analysis.methodology_mapping.empathy_anchor or "未分析" }}
+
+### 价值图谱
+{{ comprehensive_analysis.methodology_mapping.value_map or "未分析" }}
+
+---
+
+## 💡 核心洞察 (一体化战略解读)
+
+{{ comprehensive_analysis.core_insight or (comprehensive_analysis.core_insights|join(', ') if comprehensive_analysis.core_insights else "洞察生成中...") }}
+
+---
+
 ## 👤 博主档案
 
 | 基本信息 | 详情 |

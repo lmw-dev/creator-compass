@@ -149,10 +149,11 @@ def analyze(
                 transcriber = TencentASRTranscriber()
                 
                 # 根据音频时长选择转录方法
+                source_file = video_info.video_path if hasattr(video_info, 'video_path') and video_info.video_path else None
                 if video_info.duration <= 60:
-                    transcript_result = transcriber.transcribe_short_audio(video_info.audio_path)
+                    transcript_result = transcriber.transcribe_short_audio(video_info.audio_path, source_file)
                 else:
-                    transcript_result = transcriber.transcribe_file(video_info.audio_path)
+                    transcript_result = transcriber.transcribe_file(video_info.audio_path, source_file)
                 
                 progress.update(task2, description="✅ 音频转录完成")
                 
@@ -415,10 +416,11 @@ def process_single_file(file_path: str, verbose: bool = False) -> Optional[dict]
             transcriber = TencentASRTranscriber()
             
             # 根据音频时长选择转录方法
+            source_file = video_info.video_path if hasattr(video_info, 'video_path') and video_info.video_path else Path(file_path)
             if video_info.duration <= 60:
-                transcript_result = transcriber.transcribe_short_audio(video_info.audio_path)
+                transcript_result = transcriber.transcribe_short_audio(video_info.audio_path, source_file)
             else:
-                transcript_result = transcriber.transcribe_file(video_info.audio_path)
+                transcript_result = transcriber.transcribe_file(video_info.audio_path, source_file)
             
             progress.update(task2, description="✅ 音频转录完成")
             
@@ -588,6 +590,88 @@ def config_check():
         
     except typer.Exit:
         return
+
+@app.command()
+def cache_management(
+    action: str = typer.Argument(..., help="缓存操作：stats | cleanup | clear"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="启用详细输出")
+):
+    """
+    转录缓存管理工具
+    
+    可用操作：
+    - stats: 显示缓存统计信息
+    - cleanup: 清理重复缓存
+    - clear: 清空所有缓存
+    """
+    
+    # 设置日志级别
+    if verbose:
+        logger.setLevel("DEBUG")
+    
+    print_banner()
+    
+    # 验证配置
+    try:
+        validate_config()
+    except typer.Exit:
+        return
+    
+    from src.ai_outreach.transcript_cache import TranscriptCache
+    
+    cache = TranscriptCache()
+    
+    if action == "stats":
+        # 显示缓存统计
+        stats = cache.get_cache_stats()
+        
+        console.print("\n📊 转录缓存统计:", style="bold blue")
+        console.print(f"• 缓存总数: {stats['cache_count']}")
+        console.print(f"• 源文件缓存: {stats['source_based_caches']}")
+        console.print(f"• 音频文件缓存: {stats['audio_based_caches']}")
+        console.print(f"• 缓存文件数: {stats['cache_files']}")
+        console.print(f"• 总大小: {stats['total_size_mb']} MB")
+        console.print(f"• 缓存目录: {stats['cache_dir']}")
+        
+        if stats['audio_based_caches'] > stats['source_based_caches']:
+            console.print("\n⚠️ 检测到较多音频文件缓存，建议运行清理操作", style="yellow")
+            console.print("运行命令: python main.py cache-management cleanup", style="dim")
+    
+    elif action == "cleanup":
+        # 清理重复缓存
+        console.print("\n🧹 开始清理重复缓存...", style="yellow")
+        
+        result = cache.cleanup_duplicate_caches()
+        
+        console.print(f"\n✅ 缓存清理完成!", style="bold green")
+        console.print(f"• 清理前总数: {result['total_before']}")
+        console.print(f"• 已删除: {result['removed_count']}")
+        console.print(f"• 已保留: {result['kept_count']}")
+        
+        if result['removed_count'] > 0:
+            console.print(f"\n💰 节省存储空间，提高缓存效率", style="green")
+        else:
+            console.print(f"\n✨ 缓存已是最优状态", style="green")
+    
+    elif action == "clear":
+        # 确认清空缓存
+        confirm = typer.confirm("⚠️ 确定要清空所有转录缓存吗？这将导致所有视频重新转录。")
+        if not confirm:
+            console.print("❌ 操作已取消", style="yellow")
+            return
+        
+        console.print("\n🗑️ 正在清空所有缓存...", style="yellow")
+        
+        cleared_count = cache.clear_cache()
+        
+        console.print(f"\n✅ 缓存清空完成!", style="bold green")
+        console.print(f"• 已删除 {cleared_count} 个缓存文件")
+        console.print("• 下次转录将重新调用ASR API", style="dim")
+    
+    else:
+        console.print(f"❌ 不支持的操作: {action}", style="bold red")
+        console.print("可用操作: stats | cleanup | clear", style="dim")
+        raise typer.Exit(1)
 
 if __name__ == "__main__":
     app()

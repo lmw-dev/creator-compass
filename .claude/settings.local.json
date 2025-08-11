@@ -77,7 +77,13 @@
       "Bash(DATABASE_URL=\"postgresql://postgres:password@localhost:5432/deconstructor_db?schema=baokuan_app\" npx prisma migrate reset --force)",
       "Bash(DATABASE_URL=\"postgresql://postgres:password@localhost:5432/deconstructor_db?schema=baokuan_app\" npx prisma migrate deploy)",
       "Bash(DATABASE_URL=\"postgresql://postgres:password@localhost:5432/deconstructor_db?schema=baokuan_app\" docker-compose --env-file ../../.env -f docker-compose.yml exec -T db psql -U postgres -d deconstructor_db -f -)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(yt-dlp:*)",
+      "Bash(ffprobe:*)",
+      "Bash(ffmpeg:*)",
+      "WebFetch(domain:cloud.tencent.com)",
+      "Bash(pip show:*)",
+      "Bash(timeout:*)"
     ],
     "deny": []
   }

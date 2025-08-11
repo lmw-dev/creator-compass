@@ -14,6 +14,7 @@ from tencentcloud.asr.v20190614 import asr_client, models
 from .utils.logger import logger
 from .utils.exceptions import TranscriptionError, ConfigurationError
 from .utils.config import config
+from .transcript_cache import TranscriptCache
 
 class TranscriptResult:
     """转录结果类"""
@@ -26,6 +27,9 @@ class TencentASRTranscriber:
     """腾讯云ASR转录器"""
     
     def __init__(self):
+        # 初始化缓存
+        self.cache = TranscriptCache()
+        
         # 验证配置
         if not config.TENCENT_SECRET_ID or not config.TENCENT_SECRET_KEY:
             raise ConfigurationError("腾讯云API密钥未配置")
@@ -40,17 +44,31 @@ class TencentASRTranscriber:
         
         self.client = asr_client.AsrClient(cred, config.TENCENT_REGION, clientProfile)
     
-    def transcribe_short_audio(self, audio_path: Path) -> TranscriptResult:
+    def transcribe_short_audio(self, audio_path: Path, source_file: Path = None) -> TranscriptResult:
         """
         转录短音频（≤60秒）
         
         Args:
             audio_path: 音频文件路径
+            source_file: 源视频文件路径（用于缓存）
             
         Returns:
             转录结果
         """
         logger.info(f"开始转录短音频: {audio_path}")
+        
+        # 检查缓存（强制优先使用源文件缓存）
+        if source_file and source_file.exists():
+            cached_text = self.cache.get_cached_transcript_by_source(source_file)
+            if cached_text:
+                logger.info(f"使用源文件缓存转录结果，跳过ASR调用: {source_file.name}")
+                return TranscriptResult(cached_text, 1.0)
+        
+        # 备用缓存检查（音频文件缓存）
+        cached_text = self.cache.get_cached_transcript(audio_path)
+        if cached_text:
+            logger.info(f"使用音频文件缓存转录结果，跳过ASR调用: {audio_path.name}")
+            return TranscriptResult(cached_text, 1.0)
         
         try:
             # 读取音频文件并编码
@@ -93,6 +111,15 @@ class TencentASRTranscriber:
             if hasattr(resp, 'Result') and resp.Result:
                 logger.info(f"短音频转录完成，文本长度: {len(resp.Result)}字符")
                 logger.debug(f"转录结果内容: '{resp.Result}'")
+                
+                # 保存到缓存（强制优先保存源文件缓存）
+                if source_file and source_file.exists():
+                    logger.info(f"保存源文件缓存: {source_file.name}")
+                    self.cache.save_transcript_cache_by_source(source_file, resp.Result, confidence=1.0)
+                else:
+                    logger.info(f"保存音频文件缓存: {audio_path.name}")
+                    self.cache.save_transcript_cache(audio_path, resp.Result, confidence=1.0)
+                
                 return TranscriptResult(resp.Result, 1.0)
             else:
                 raise TranscriptionError("转录结果为空")
@@ -104,19 +131,32 @@ class TencentASRTranscriber:
             logger.error(error_msg)
             raise TranscriptionError(error_msg)
     
-    def transcribe_file(self, audio_path: Path) -> TranscriptResult:
+    def transcribe_file(self, audio_path: Path, source_file: Path = None) -> TranscriptResult:
         """
         转录长音频文件（使用录音文件识别）
         
         Args:
             audio_path: 音频文件路径
+            source_file: 源视频文件路径（用于缓存）
             
         Returns:
             转录结果
         """
         logger.info(f"开始转录音频: {audio_path}")
         
-        original_audio_path = audio_path
+        # 检查缓存（强制优先使用源文件缓存）
+        if source_file and source_file.exists():
+            cached_text = self.cache.get_cached_transcript_by_source(source_file)
+            if cached_text:
+                logger.info(f"使用源文件缓存转录结果，跳过ASR调用: {source_file.name}")
+                return TranscriptResult(cached_text, 1.0)
+        
+        # 备用缓存检查（音频文件缓存）
+        cached_text = self.cache.get_cached_transcript(audio_path)
+        if cached_text:
+            logger.info(f"使用音频文件缓存转录结果，跳过ASR调用: {audio_path.name}")
+            return TranscriptResult(cached_text, 1.0)
+        
         compressed_path = None
         
         try:
@@ -213,6 +253,15 @@ class TencentASRTranscriber:
                         
                         logger.info(f"转录完成，最终文本长度: {len(full_text)}字符")
                         logger.debug(f"转录结果内容: '{full_text[:200]}...'")
+                        
+                        # 保存到缓存（强制优先保存源文件缓存）
+                        if source_file and source_file.exists():
+                            logger.info(f"保存源文件缓存: {source_file.name}")
+                            self.cache.save_transcript_cache_by_source(source_file, full_text, confidence=1.0)
+                        else:
+                            logger.info(f"保存音频文件缓存: {audio_path.name}")
+                            self.cache.save_transcript_cache(audio_path, full_text, confidence=1.0)
+                        
                         return TranscriptResult(full_text, 1.0)
                     
                     elif desc_resp.Data.StatusStr == "failed":
